@@ -8,7 +8,9 @@ output:
   word_document: default
 ---
 
-
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 ## Confidence Intervals
 
@@ -17,14 +19,14 @@ I don't like confidence intervals as normally presented (though I acknowledge it
 I initially began doing these with a mass of custom code in base plot. This is a ggplot2 version, involving a bit less code and a few more libraries. This is very much an "intermediate" R walkthrough of what I do, in as much as I am not explaining ggplot or data transformation, just showing how I do one particular affect.
 
 
-
-```r
+```{r libs_needed, error=FALSE, warning=FALSE, message=FALSE}
 library(dplyr)
 library(tidyr)
 library(binom)
 library(purrr)
 library(ggplot2)
 library(ggthemes)
+
 ```
 
 ## Example Data
@@ -39,8 +41,7 @@ occurances - the total number of accidents, of which selfowns is a subset
 
 This is real data, but this is also a graphing demonstration so the actual data is not the focus.
 
-
-```r
+```{r data_example}
 cyclists <- read.csv("hospital_cycle_discharges.csv")
 threecolors <- c("#428543", "#77C579", "#DCEEA2")
 ```
@@ -50,14 +51,11 @@ threecolors <- c("#428543", "#77C579", "#DCEEA2")
 
 First, a traditional, nuance free, graph.
 
-
-```r
+```{r}
 cyclists %>% mutate(proportion_selfown = selfowns/occurances) %>%
   ggplot(aes(x=crash_year, y=proportion_selfown)) + geom_bar(stat="identity") + 
   theme_tufte() + ylim(0,1) + ggtitle("Cyclist solo accidents as proportion of accidents")
 ```
-
-![](banded_ci_files/figure-html/unnamed-chunk-1-1.png)<!-- -->
 
 ## A banded view
 
@@ -65,8 +63,7 @@ Calculating out solid colour bands takes a bit of work (it could be approximated
 
 In short, I am calculating multiple binomial confidence thresholds for each entry.
 
-
-```r
+```{r}
 thresholds <- function(df){
   c1 <- binom.confint(df$selfowns[1], df$occurances[1], conf.level = 0.68, method="exact")
   c2 <- binom.confint(df$selfowns[1], df$occurances[1], conf.level = 0.95, method="exact")
@@ -89,8 +86,7 @@ grf_band <- cyclists %>% group_by(crash_year) %>% nest() %>%
 
 Next, I use those thresholds to draw rectangles
 
-
-```r
+```{r}
 ggplot(grf_band) +
   geom_rect(aes(xmin=crash_year - 0.5,
                 ymin=c3_lower,
@@ -115,8 +111,6 @@ ggplot(grf_band) +
   theme_tufte() + ylim(0,1) + ggtitle("Cyclist solo accidents as proportion of accidents")
 ```
 
-![](banded_ci_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
-
 ## Using transparency
 
 I feel that using transparency needs a lot more work, for two reasons-
@@ -125,8 +119,7 @@ I feel that using transparency needs a lot more work, for two reasons-
 
 - Because there is transparency, you can't take the cheat I used in the previous graph of overlaying rectangles, you need to only draw the specific range, which means drawing two times the number of rectangles you want
 
-
-```r
+```{r}
 thresholds <- function(df){
   to10 <- binom.confint(df$selfowns[1], df$occurances[1], conf.level = 0.1, method="exact")
   to20 <- binom.confint(df$selfowns[1], df$occurances[1], conf.level = 0.2, method="exact")
@@ -171,8 +164,7 @@ grf_alpha <- cyclists %>% group_by(crash_year) %>% nest() %>%
 
 The graphing is the same principles as before, with a lot more rectangles.
 
-
-```r
+```{r}
 ggplot(grf_alpha) +
   geom_rect(aes(xmin=crash_year - 0.5,
                 ymin=p10_lower,
@@ -277,16 +269,13 @@ ggplot(grf_alpha) +
   theme_tufte() + ylim(0,1)  + ggtitle("Cyclist solo accidents as proportion of accidents")
 ```
 
-![](banded_ci_files/figure-html/unnamed-chunk-5-1.png)<!-- -->
-
 ## Transparency with data transformation
 
 Because I am making a lot of rectangles, I can cut down on the graphing code by transforming the data from data of observations with confidences interval thresholds, to data of confidence interval bands of point estimates. As this makes each confidence interval range a tidy observation, it is much easier to graph. 
 
 Developing this approach needs a certain amount of thinking out what data structure answers my need, and how to I change my data into that structure. In particular, because in this approach I am including the alpha value in the data, I need to be mindful that the thresholds values order linearly through the probabilities, but the alpha values rise and fall.
 
-
-```r
+```{r}
 thresholds <- function(df){
   to10 <- binom.confint(df$selfowns[1], df$occurances[1], conf.level = 0.1, method="exact")
   to20 <- binom.confint(df$selfowns[1], df$occurances[1], conf.level = 0.2, method="exact")
@@ -334,8 +323,7 @@ grf_alpha_tdy <- cyclists %>% group_by(crash_year) %>% nest() %>%
 
 Having transformed the data so that the observations are the things I need to achieve my goal, the graph is much easier
 
-
-```r
+```{r}
 ggplot(grf_alpha_tdy, aes(xmin=crash_year - 0.5,
                 ymin=ythreshold1,
                 xmax=crash_year + 0.5,
@@ -345,6 +333,4 @@ ggplot(grf_alpha_tdy, aes(xmin=crash_year - 0.5,
   theme_tufte() + ylim(0,1)  +
   ggtitle("Cyclist solo accidents as proportion of accidents") + theme(legend.position="none")
 ```
-
-![](banded_ci_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
 
